@@ -1,6 +1,6 @@
-;	Altirra - Atari 800/800XL emulator
-;	BASIC ROM placeholder
-;	Copyright (C) 2008 Avery Lee
+;	Altirra - Atari 800/800XL/5200 emulator
+;	Game ROM placeholder
+;	Copyright (C) 2008-2011 Avery Lee
 ;
 ;	This program is free software; you can redistribute it and/or modify
 ;	it under the terms of the GNU General Public License as published by
@@ -85,9 +85,12 @@ nmires	equ	$d40f
 	org		$a000
 
 ;==========================================================================
-; main() must be at $A000. The AST cartridge jumps directly to $A000 to
-; attempt to run BASIC.
-;
+.proc	init
+	rts
+.endp
+
+;==========================================================================
+
 .proc	main
 	;disable all interrupts and ANTIC DMA
 	sei
@@ -132,11 +135,6 @@ nmires	equ	$d40f
 .endp
 
 ;==========================================================================
-.proc	init
-	rts
-.endp
-
-;==========================================================================
 
 	org		$be00
 
@@ -156,11 +154,11 @@ display_list:
 
 message:
 	;		 0123456789012345678901234567890123456789
-	dta		"Altirra BASIC ROM                       "
+	dta		"Altirra Game ROM                        "
 	dta		"This is a placeholder for the normal    "
-	dta		"Atari BASIC ROM. See the README for     "
-	dta		"instructions on how to use a real Atari "
-	dta		"BASIC ROM image.                        "
+	dta		"XEGS game ROM. See the README for       "
+	dta		"instructions on how to hook up alternate"
+	dta		"ROM images.                             "
 	dta		"System halted                           "
 
 ;==========================================================================

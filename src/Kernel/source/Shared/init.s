@@ -1,5 +1,5 @@
 ;	Altirra - Atari 800/800XL emulator
-;	Kernel ROM replacement
+;	Kernel ROM replacement - Initialization
 ;	Copyright (C) 2008 Avery Lee
 ;
 ;	This program is free software; you can redistribute it and/or modify
@@ -16,7 +16,50 @@
 ;	along with this program; if not, write to the Free Software
 ;	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
-.proc ColdStart
+.if _KERNEL_XLXE
+.proc InitBootSignature
+	dta		$5C,$93,$25
+.endp
+.endif
+
+.proc InitHandlerTable
+	dta		c'P',a(printv)
+	dta		c'C',a(casetv)
+	dta		c'E',a(editrv)
+	dta		c'S',a(screnv)
+	dta		c'K',a(keybdv)
+.endp
+
+InitColdStart = InitReset.cold_boot
+.proc InitReset
+	;mask interrupts and initialize CPU
+	sei
+	cld
+	ldx		#$ff
+	txs
+
+	;wait for everything to stabilize (0.1s)
+	ldy		#140
+	ldx		#0
+stabilize_loop:
+	dex:rne
+	dey
+	bne		stabilize_loop
+
+	.if _KERNEL_XLXE
+	;check for warmstart signature (XL/XE)
+	ldx		#2
+warm_check:
+	lda		pupbt1,x
+	cmp		InitBootSignature,x
+	bne		cold_boot
+	dex
+	bpl		warm_check
+
+	jmp		InitWarmStart
+	.endif
+
+cold_boot:
 	; 1. initialize CPU
 	sei
 	cld
@@ -27,8 +70,48 @@
 	mva		#0 warmst
 
 	; 3. test for diagnostic cartridge
+	lda		$bffc
+	bne		not_diag
+	ldx		$bfff			;prevent diagnostic cart from activating if addr is $FFxx
+	inx
+	bne		not_diag
+	ldx		#0
+	mva		#$ff $bffc
+	sta		$bffc
+	cmp		not_diag
+	bne		not_diag
+
+	; is it enabled?
+	bit		$bffd
+	bpl		not_diag
+
+	; start diagnostic cartridge
+	jmp		($bffe)
+
+not_diag:
+
+	jsr		InitHardwareReset
+
+	.if _KERNEL_XLXE
+	;check for OPTION and enable BASIC (note that we do NOT set BASICF just yet)
+	lda		#4
+	bit		consol
+	beq		no_basic
+
+	ldx		#$fd
+
+	;check for keyboard present + SELECT or no keyboard + no SELECT and enable game if so
+	lda		trig2		;check keyboard present (1 = present)
+	asl
+	eor		consol		;XOR against select (0 = pressed)
+	and		#$02
+	seq:ldx	#$bf
+	stx		portb		;enable GAME or BASIC
+
+no_basic:
+	.endif
+
 	; 4. measure memory -> tramsz
-	; 5. clear all hardware registers
 	jsr		InitMemory
 
 	; 6. clear memory from $0008 up to [tramsz,0]
@@ -47,10 +130,25 @@ clearloop2:
 	bne		clearloop
 
 	; 7. set dosvec to blackboard routine
+.if _KERNEL_USE_BOOT_SCREEN
+	mwa		#SelfTestEntry dosvec
+.else
 	mwa		#Blackboard dosvec
+.endif
 
 	; 8. set coldstart flag
 	mva		#$ff coldst
+
+.if _KERNEL_XLXE
+	; set BASIC flag
+	lda		portb
+	and		#$02
+	sta		basicf
+
+	; set warmstart signature
+	ldx		#2
+	mva:rpl	InitBootSignature,x pupbt1,x-
+.endif
 
 	; 9. set screen margins
 	; 10. initialize RAM vectors
@@ -68,7 +166,7 @@ clearloop2:
 .endp
 
 ;==============================================================================
-.proc WarmStart
+.proc InitWarmStart
 	; A. initialize CPU
 	sei
 	cld
@@ -78,10 +176,19 @@ clearloop2:
 	; B. set warmstart flag
 	stx		warmst
 
+	; reinitialize hardware without doing a full clear
+	jsr		InitHardwareReset
+
+	.if _KERNEL_XLXE
+	; reinitialize BASIC
+	lda		basicf
+	sne:mva #$fd portb
+	.endif
+
 	; C. check for diag, measure memory, clear hw registers
 	jsr		InitMemory
 
-	; D. zero 0010-007F and 0200-03FF.
+	; D. zero 0010-007F and 0200-03EC (must not clear BASICF).
 	ldx		#$5f
 	lda		#0
 zpclear:
@@ -92,7 +199,7 @@ zpclear:
 	ldx		#0
 dbclear:
 	sta		$0200,x
-	sta		$0300,x
+	sta		$02ed,x
 	inx
 	bne		dbclear
 
@@ -104,109 +211,108 @@ dbclear:
 .endp
 
 ;==============================================================================
-.proc InitMemory
-	; 3. test for diagnostic cartridge
-	lda		$bffc
-	bne		notdiag
+.proc InitHardwareReset
+	; clear all hardware registers
 	ldx		#0
-	mva		#$ff $bffc
-	sta		$bffc
-	cmp		notdiag
-	bne		notdiag
+	txa
+hwclear:
+	sta		$d000,x
+	sta		$d200,x
+	sta		$d400,x
+	inx
+	bne		hwclear
 
-	; is it enabled?
-	bit		$bffd
-	bpl		notdiag
+	;initialize PIA
+.if _KERNEL_XLXE
+	lda		#$3c
+	ldx		#$38
+	ldy		#0
+	stx		pactl		;switch to DDRA
+	sty		porta		;portA -> input
+	sta		pactl		;switch to IORA
+	sty		porta		;portA -> $00
+	sta		pbctl		;switch to IORB
+	dey
+	sty		portb		;portB -> $FF
+	stx		pbctl		;switch to DDRB
+	sty		portb		;portB -> all output
+	sta		pbctl		;switch to IORB
+.else
+	lda		#$3c
+	ldx		#$38
+	ldy		#0
+	stx		pactl		;switch to DDRA
+	sty		porta		;portA -> input
+	sty		portb		;portB -> input
+	sta		pactl		;switch to IORA
+	sta		pbctl		;switch to IORB
+	sty		porta		;portA -> $00
+	sty		portb		;portB -> $00
+.endif
+	rts
+.endp
 
-	; start diagnostic cartridge
-	jmp		($bffe)
-
-notdiag:
-
+;==============================================================================
+.proc InitMemory
 	; 4. measure memory -> tramsz
 	ldy		#$00
-	sty		a0
+	sty		adress
 	ldx		#$02
 pageloop:
-	stx		a0+1
-	lda		(a0),y
+	stx		adress+1
+	lda		(adress),y
 	eor		#$ff
-	sta		(a0),y
-	cmp		(a0),y
+	sta		(adress),y
+	cmp		(adress),y
 	bne		notRAM
 	eor		#$ff
-	sta		(a0),y
+	sta		(adress),y
 	inx
 	cpx		#$c0
 	bne		pageloop
 notRAM:
 	stx		tramsz
 
-	; 5. clear all hardware registers
-	ldx		#$1f
-	lda		#$00
-hwclear:
-	sta		$d000,x
-	sta		$d200,x
-	sta		$d400,x
-	dex
-	bpl		hwclear
-
 	rts
 .endp
 
 ;==============================================================================
+.proc InitVectorTable1
+	dta		a(IntExitHandler_None)
+	dta		a(IntExitHandler_A)
+	dta		a(IntExitHandler_A)
+	dta		a(IntExitHandler_A)
+	dta		a(KeyboardIRQ)
+	dta		a(SIOInputReadyHandler)
+	dta		a(SIOOutputReadyHandler)
+	dta		a(SIOOutputCompleteHandler)
+	dta		a(IntExitHandler_A)
+	dta		a(IntExitHandler_A)
+	dta		a(IntExitHandler_A)
+	dta		a(IrqHandler)
+end:
+.endp
+
+;==============================================================================
 .proc InitEnvironment
-	;(Altirra specific) Check OPTION and enable BASIC rom.
-	ldx		basicf
-	lda		warmst
-	bne		skipoption
-
-	lda		consol
-	ldx		#0
-	and		#$04
-	sne:ldx	#$ff
-	stx		basicf
-skipoption:
-
-	ldx		#$b3
-	ldy		basicf
-	bne		nobasic
-
-	;bank in BASIC
-	ldx		#$b1
-
-	mva		#$a0 tramsz
-nobasic:
-
-	mvy		#$3c pbctl
-	sty		pactl
-	stx		portb
-	mva		#$38 pbctl
-	mva		#$ff portb
-	sty		pbctl
-
 	mva		tramsz ramsiz
 
 	; 9. set screen margins
 	mva		#2 lmargn
 	mva		#39 rmargn
 
+	;set PAL/NTSC flag
+	ldx		#0
+	lda		pal
+	sne:ldx	#$ff
+	stx		palnts
+
 	; 10. initialize RAM vectors
-	mwa		#DefaultHandler_RTI		vdslst
-	mwa		#DefaultHandler_A_RTI	vprced
-	mwa		#DefaultHandler_A_RTI	vinter
-	mwa		#DefaultHandler_A_RTI	vbreak
-	mwa		#KeyboardIRQ			vkeybd
-	mwa		#SerialInputReady		vserin
-	mwa		#SerialOutputReady		vseror
-	mwa		#SerialOutputComplete	vseroc
-	mwa		#DefaultHandler_A_RTI	vtimr1
-	mwa		#DefaultHandler_A_RTI	vtimr2
-	mwa		#DefaultHandler_A_RTI	vtimr4
-	mwa		#IrqHandler				vimirq
-	mwa		#VBlankImmediate		vvblki
-	mwa		#VBlankDeferred			vvblkd
+	ldx		#InitVectorTable1.end-InitVectorTable1-1
+	mva:rpl	InitVectorTable1,x vdslst,x-
+
+	mwa		#VBIStage1				vvblki
+	mwa		#VBIExit				vvblkd
 	mwa		#KeyboardBreakIRQ		brkky
 	mwa		#0						cdtma1
 
@@ -216,6 +322,7 @@ nobasic:
 	mva		tramsz memtop+1
 	mwa		#$0700 memlo
 
+	jsr		DiskInit
 	jsr		ScreenInit
 	;jsr	DisplayInit
 	jsr		KeyboardInit
@@ -223,7 +330,11 @@ nobasic:
 	;jsr	CassetteInit
 	jsr		cioinv
 	jsr		SIOInit
-	;jsr	InterruptProcInit
+	jsr		IntInitInterrupts
+
+.if _KERNEL_PBI_SUPPORT
+	jsr		PBIScan
+.endif
 
 	; check for START key, and if so, set cassette boot flag
 	lda		consol
@@ -243,19 +354,19 @@ htabinit2:
 	dex
 	cpx		#14
 	bne		htabinit2
-htabinit:
-	lda		HandlerTable,x
-	sta		hatabs,x
-	dex
-	bpl		htabinit
+
+	mva:rpl	InitHandlerTable,x hatabs,x-
 
 	; 14. initialize cartridges
 	mva		#0 tstdat
 	lda		$9ffc
 	bne		skipCartBInit
-	mvx		#$ff $9ffc
-	cpx		$9ffc
-	sta		$9ffc
+	lda		$9ffb
+	tax
+	eor		#$ff
+	sta		$9ffb
+	cmp		$9ffb
+	stx		$9ffb
 	beq		skipCartBInit
 	jsr		InitCartB
 	mva		#1 tstdat
@@ -264,9 +375,12 @@ skipCartBInit:
 	mva		#0 tramsz
 	lda		$bffc
 	bne		skipCartAInit
-	mvx		#$ff $bffc
-	cpx		$bffc
-	sta		$bffc
+	lda		$bffb
+	tax
+	eor		#$ff
+	sta		$bffb
+	cmp		$bffb
+	stx		$bffb
 	beq		skipCartAInit
 	jsr		InitCartA
 	mva		#1 tramsz
@@ -281,11 +395,16 @@ skipCartAInit:
 	jsr		ciov
 
 	; 16. wait for VBLANK so screen is initialized
-
 	lda		rtclok+2
 waitvbl:
 	cmp		rtclok+2
 	beq		waitvbl
+
+;-----------------------------------------------------------
+
+	.ifdef	_KERNEL_PRE_BOOT_HOOK
+	jsr		InitPreBootHook
+	.endif
 
 ;-----------------------------------------------------------
 
@@ -301,7 +420,7 @@ waitvbl:
 
 	lda		ckey
 	bne		postcasboot
-	jsr		BugCheck
+	jsr		BootCassette
 	jmp		postcasboot
 
 reinitcas:
@@ -321,7 +440,7 @@ postcasboot:
 	beq		noCartBBoot
 	lda		#$01
 	bit		$9ffd
-	bne		bootDisk
+	bne		boot_disk
 	lda		tramsz
 	beq		postDiskBoot
 noCartBBoot:
@@ -333,8 +452,8 @@ noCartBBoot:
 	bit		$bffd
 	beq		postDiskBoot
 noCartABoot:
-bootDisk:
-	jsr		DiskBoot
+boot_disk:
+	jsr		BootDisk
 	jmp		postDiskBoot
 
 reinitDisk:
@@ -384,7 +503,7 @@ InitCartB:
 	jmp		($9ffe)
 
 ScreenEditorName:
-	dta		c"E:",$9B
+	dta		c"E",$9B
 
 .endp
 

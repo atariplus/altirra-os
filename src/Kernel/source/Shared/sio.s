@@ -1,6 +1,6 @@
-;	Altirra - Atari 800/800XL emulator
-;	Kernel ROM replacement
-;	Copyright (C) 2008 Avery Lee
+;	Altirra - Atari 800/800XL/5200 emulator
+;	Modular Kernel ROM - Serial Input/Output Routines
+;	Copyright (C) 2008-2012 Avery Lee
 ;
 ;	This program is free software; you can redistribute it and/or modify
 ;	it under the terms of the GNU General Public License as published by
@@ -16,19 +16,10 @@
 ;	along with this program; if not, write to the Free Software
 ;	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
-SIOSuccess			= $01
-SIOErrorTimeout		= $8A
-SIOErrorNAK			= $8B
-SIOErrorBadFrame	= $8C
-SIOErrorOverrun		= $8E
-SIOErrorChecksum	= $8F
-SIOErrorDeviceDone	= $90
-
 .proc SIOInit
-	mwa		#SIOCountdown1Handler	cdtma1
-
 	;turn off POKEY init mode so polynomial counters and audio run
 	mva		#3 skctl
+	sta		sskctl
 	rts
 .endp
 
@@ -37,8 +28,27 @@ SIOErrorDeviceDone	= $90
 	tsx
 	stx		stackp
 
+	;set retry counters
+	mva		#$0d cretry
+	mva		#$01 dretry
+
+	;enter critical section
+	sta		critic
+
+.if _KERNEL_PBI_SUPPORT
+	;attempt PBI transfer
+	jsr		PBIAttemptSIO
+	scc:jmp	xit
+.endif
+
 	jsr		SIOInitBaseTransfers
 
+	;check for cassette
+	lda		ddevic
+	cmp		#$5f
+	sne:jmp	SIOCassette
+
+retry_command:
 	;init command buffer
 	lda		ddevic
 	clc
@@ -72,7 +82,7 @@ SIOErrorDeviceDone	= $90
 	lda		#1
 	ldx		#>3
 	ldy		#<3
-	jsr		SetVBlankVector
+	jsr		setvbv
 
 	;setup for receiving ACK
 	mwa		#temp		bufrlo
@@ -85,6 +95,10 @@ SIOErrorDeviceDone	= $90
 	bpl		ackOK
 
 	ldy		#SIOErrorNAK
+
+command_error:
+	dec		cretry
+	bne		retry_command
 	jmp		xit
 ackOK:
 
@@ -93,7 +107,7 @@ ackOK:
 	lda		#1
 	ldx		#>90
 	ldy		#<90
-	jsr		SetVBlankVector
+	jsr		setvbv
 
 	;setup for receiving complete
 	mva		#$ff		nocksm
@@ -102,17 +116,21 @@ ackOK:
 	bmi		xit
 	lda		temp
 	cmp		#'C'
-	bpl		completeOK
+	beq		completeOK
 
+	dec		dretry
+	beq		device_retries_exhausted
+	jmp		retry_command
+
+device_retries_exhausted:
 	ldy		#SIOErrorNAK
-	jmp		xit
-
 xit:
 	lda		#0
 	sta		audc1
 	sta		audc2
 	sta		audc3
 	sta		audc4
+	sta		critic
 
 	ldx		stackp
 	txs
@@ -123,15 +141,7 @@ xit:
 completeOK:
 
 	;setup buffer pointers
-	clc
-	lda		dbuflo
-	sta		bufrlo
-	adc		dbytlo
-	sta		bfenlo
-	lda		dbufhi
-	sta		bufrhi
-	adc		dbythi
-	sta		bfenhi
+	jsr		SIOSetupBufferPointers
 
 	;check if we should send a data frame
 	bit		dstats
@@ -159,6 +169,11 @@ dataSendOK:
 ;SIO base init routine
 ;
 .proc SIOInitBaseTransfers
+	;set timeout timer address -- MUST be done on each call to SIO, or
+	;Cross-Town Crazy Eight hangs on load due to taking over this vector
+	;previously
+	mwa		#SIOCountdown1Handler	cdtma1
+
 	;clock channel 3 and 4 together at 1.79MHz
 	mva		#$28	audctl
 
@@ -170,6 +185,20 @@ dataSendOK:
 
 	;reset serial status
 	sta		skres
+	rts
+.endp
+
+;==============================================================================
+.proc SIOSetupBufferPointers
+	clc
+	lda		dbuflo
+	sta		bufrlo
+	adc		dbytlo
+	sta		bfenlo
+	lda		dbufhi
+	sta		bufrhi
+	adc		dbythi
+	sta		bfenhi
 	rts
 .endp
 
@@ -192,10 +221,11 @@ dataSendOK:
 	sta		irqen
 	cli
 
-	mva		#0		xmtdon
-	mva		#0		status
-	mva		#0		chksum
-	mva		#0		chksnt
+	lda		#0
+	sta		xmtdon
+	sta		status
+	sta		chksum
+	sta		chksnt
 
 	;send first byte
 	lda		#>wait
@@ -233,10 +263,14 @@ error:
 ;SIO receive routine
 ;
 .proc SIOReceive
-	mva		#0		bufrfl
-	mva		#0		recvdn
-	mva		#0		status
-	mva		#0		chksum
+	lda		#0
+use_checksum:
+	sta		chksum
+	lda		#0
+	sta		recvdn
+	sta		bufrfl
+	lda		#1
+	sta		status
 
 	;configure serial port for asynchronous receive
 	;enable receive IRQ
@@ -293,7 +327,7 @@ timeout:
 ;	NOCKSM:			Set if no checksum byte is expected. Cleared after checked.
 ;	RECVDN:			Set when receive is complete, including any checksum.
 ;
-.proc SerialInputReady
+.proc SIOInputReadyHandler
 	lda		bufrfl
 	bne		receiveChecksum
 
@@ -372,7 +406,7 @@ skipChecksum:
 ;	POKMSK:			Used to enable the serial output complete IRQ after sending
 ;					checksum.
 ;
-.proc SerialOutputReady
+.proc SIOOutputReadyHandler
 	;increment buffer pointer
 	inc		bufrlo
 	bne		addrcc
@@ -426,7 +460,7 @@ doChecksum:
 .endp
 
 ;==============================================================================
-.proc SerialOutputComplete
+.proc SIOOutputCompleteHandler
 	;check that we've sent the checksum
 	lda		chksnt
 	beq		xit
@@ -451,3 +485,202 @@ xit:
 	mva		#0	timflg
 	rts
 .endp
+
+;==============================================================================
+.proc SIOCassette
+	;check if it's read sector
+	lda		dcomnd
+	cmp		#$52
+	beq		isread
+
+	;nope, bail
+	ldy		#SIOErrorNAK
+	jmp		xit
+
+isread:
+	jsr		SIOCassetteReadFrame
+xit:
+	jmp		SIO.xit
+
+.endp
+
+;==============================================================================
+.proc SIOCassetteReadFrame
+	;set to 600 baud, turn on async read to shut off annoying tone
+	mva		#$cc audf3
+	mva		#$05 audf4
+	lda		#0
+	sta		audc3
+	sta		audc4
+
+	lda		sskctl
+	and		#$8f
+	ora		#$10
+	sta		sskctl
+
+	;set timeout (approx; no NTSC/PAL switching yet)
+	mva		#$ff timflg
+	lda		#1
+	ldx		#>3600
+	ldy		#<3600
+	jsr		VBISetVector
+
+	;wait for beginning of frame
+	lda		#$10		;test bit 4 of SKSTAT
+waitzerostart:
+	bit		timflg
+	bpl		timeout
+	bit		skstat
+	bne		waitzerostart
+
+	;take first time measurement
+	jsr		readtimer
+	sty		timer1+1
+	sta		timer1
+
+	;wait for 19 bit transitions
+	lda		#$10		;test bit 4 of SKSTAT
+	ldx		#10			;test 10 pairs of bits
+waitone:
+	bit		timflg
+	bpl		timeout
+	bit		skstat
+	beq		waitone
+	dex
+	beq		waitdone
+waitzero:
+	bit		timflg
+	bpl		timeout
+	bit		skstat
+	bne		waitzero
+	beq		waitone
+
+timeout:
+	ldy		#SIOErrorTimeout
+	jmp		SIO.xit
+
+waitdone:
+
+	;take second time measurement
+	jsr		readtimer
+	sta		timer2
+	sty		timer2+1
+
+	;compute baud rate and adjust pokey divisor
+	;
+	; counts = (pal ? 156 : 131)*rtdelta + vdelta;
+	; lines = counts * 2
+	; lines_per_bit = lines / 19
+	; cycles_per_bit = lines_per_bit * 114
+	; pokey_divisor = cycles_per_bit / 2 - 7
+	;
+	; -or-
+	;
+	; pokey_divisor = counts * 2 * 114 / 19 / 2 - 7
+	;               = counts * 114 / 19 - 7
+	;
+	;16 bits at 600 baud is nominally 209 scanline pairs. This means that we
+	;don't have to worry about more than two frames, which is at least 262
+	;scanline pairs or less than 480 baud. However, since we're using HLE,
+	;we can cheat and do this in C++.
+
+	lda		#124
+	sta		temp3
+
+	;compute line difference
+	lda		timer1
+	jsr		correct_time
+	sta		temp1
+
+	lda		timer2
+	jsr		correct_time
+	sub		temp1
+	sta		temp1
+	lda		#0
+	sbc		#0
+	tay
+
+	;compute frame difference
+	lda		timer2+1
+	sub		timer1+1
+	tax
+
+	;accumulate frame difference
+	beq		no_frames
+	lda		temp1
+add_frame_loop:
+	clc
+	adc		temp3
+	scc:iny
+	dex
+	bne		add_frame_loop
+	sta		temp1
+no_frames:
+	sty		temp1+1
+
+	;compute lines*6 - 7
+	asl		temp1				;lines*2 (lo)
+	rol		temp1+1				;lines*2 (hi)
+	lda		temp1				;
+	ldy		temp1+1				;
+	asl		temp1				;lines*4 (lo)
+	rol		temp1+1				;lines*4 (hi)
+	adc		temp1				;lines*6 (lo)
+	tax							;
+	tya							;
+	adc		temp1+1				;
+	tay
+	txa
+	sec
+	sbc		#7
+	sta		audf3
+	tya
+	sbc		#0
+	sta		audf4
+
+	;kick pokey into init mode to reset serial input shift hw
+	ldx		sskctl
+	txa
+	and		#$fc
+	sta		skctl
+
+	;reset serial port status
+	sta		skres
+
+	;re-enable serial input hw
+	stx		skctl
+
+	jsr		SIOSetupBufferPointers
+
+	;stuff two $55 bytes into the buffer, which we "read" above
+	lda		#$55
+	ldy		#0
+	ldx		#2
+aaloop:
+	sta		(bufrlo),y
+	inw		bufrlo
+	dex:bne	aaloop
+
+	;reset checksum for two $55 bytes and receive frame
+	lda		#$aa
+	sta		chksum
+
+	jmp		SIOReceive.use_checksum
+
+readtimer:
+	ldy		rtclok+2
+	lda		vcount
+	cpy		rtclok+2
+	bne		readtimer
+	rts
+
+correct_time:
+	sec
+	sbc		#124
+	bcs		time_ok
+	adc		temp3
+time_ok:
+	rts
+
+.endp
+

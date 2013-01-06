@@ -1,6 +1,6 @@
-;	Altirra - Atari 800/800XL emulator
-;	Kernel ROM replacement
-;	Copyright (C) 2008-2009 Avery Lee
+;	Altirra - Atari 800/800XL/5200 emulator
+;	Modular Kernel ROM - Decimal Floating-Point Math Pack
+;	Copyright (C) 2008-2012 Avery Lee
 ;
 ;	This program is free software; you can redistribute it and/or modify
 ;	it under the terms of the GNU General Public License as published by

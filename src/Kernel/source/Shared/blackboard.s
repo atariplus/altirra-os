@@ -1,5 +1,5 @@
 ;	Altirra - Atari 800/800XL emulator
-;	Kernel ROM replacement
+;	Kernel ROM replacement - Blackboard
 ;	Copyright (C) 2008 Avery Lee
 ;
 ;	This program is free software; you can redistribute it and/or modify
@@ -26,10 +26,8 @@
 
 	;echo all keys
 echoloop:
-	ldx		#0
 	mva		#$07	iccmd		;get characters
-	mwa		#$0100	icbal
-	mwa		#1		icbll
+	stx		icbll
 	jsr		ciov
 	jmp		echoloop
 

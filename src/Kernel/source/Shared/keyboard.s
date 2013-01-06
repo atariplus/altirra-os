@@ -1,6 +1,6 @@
-;	Altirra - Atari 800/800XL emulator
-;	Kernel ROM replacement
-;	Copyright (C) 2008 Avery Lee
+;	Altirra - Atari 800/800XL/5200 emulator
+;	Modular Kernel ROM - Keyboard Handler
+;	Copyright (C) 2008-2012 Avery Lee
 ;
 ;	This program is free software; you can redistribute it and/or modify
 ;	it under the terms of the GNU General Public License as published by
@@ -36,28 +36,12 @@
 	rts
 .endp
 
-.proc	KeyboardOpen
-	jsr		KeyboardInit
-	ldy		#1
-	rts
-.endp
-
-.proc	KeyboardClose
-	;disable keyboard interrupts
-	php
-	sei
-	lda		pokmsk
-	and		#$3f
-	sta		pokmsk
-	sta		irqen
-	plp
-
-	ldy		#1
-	rts
-.endp
+KeyboardOpen = CIOExitSuccess
+KeyboardClose = CIOExitSuccess
 
 .proc	KeyboardGetByte
 waitForChar:
+	ldx		#$ff
 	lda		brkkey
 	beq		isBreak
 	lda		ch
@@ -65,7 +49,11 @@ waitForChar:
 	beq		waitForChar
 
 	;invalidate char
-	mvx		#$ff	ch
+	stx		ch
+
+	;do keyboard click (we do this even for ignored ctrl+shift+keys)
+	ldy		#12
+	jsr		Bell
 
 	;ignore char if both ctrl and shift are pressed
 	cmp		#$c0
@@ -75,9 +63,14 @@ waitForChar:
 	cmp		#$9a
 	beq		isCtrl3
 
-	;translate char
+	;trap Caps Lock and alter shift/caps lock
 	tax
-	lda		keyCodeToATASCII,x
+	and		#$3f
+	cmp		#$3c
+	beq		isCapsLock
+
+	;translate char
+	lda		KeyCodeToATASCIITable,x
 
 	;check for invalid char
 	cmp		#$f0
@@ -92,7 +85,7 @@ waitForChar:
 	;check for shift/control lock
 	bit		shflok
 	bvs		doShiftLock
-	bcc		notAlpha
+	bpl		notAlpha
 
 	;do control lock logic
 	and		#$1f
@@ -107,7 +100,7 @@ doShiftLock:
 	bne		notAlpha
 
 isBreak:
-	mva		#$ff	brkkey
+	stx		brkkey
 	ldy		#CIOStatBreak
 	rts
 
@@ -115,37 +108,17 @@ isCtrl3:
 	ldy		#CIOStatEndOfFile
 	rts
 
-keyCodeToATASCII:
-	;lowercase
-	dta		$6C, $6A, $3B, $F0, $F0, $6B, $2B, $2A
-	dta		$6F, $F0, $70, $75, $9B, $69, $2D, $3D
-	dta		$76, $F0, $63, $F0, $F0, $62, $78, $7A
-	dta		$34, $F0, $33, $36, $1B, $35, $32, $31
-	dta		$2C, $20, $2E, $6E, $F0, $6D, $2F, $F0
-	dta		$72, $F0, $65, $79, $7F, $74, $77, $71
-	dta		$39, $F0, $30, $37, $7E, $38, $3C, $3E
-	dta		$66, $68, $64, $F0, $F0, $67, $73, $61
-
-	;SHIFT
-	dta		$4C, $4A, $3A, $F0, $F0, $4B, $5C, $5E
-	dta		$4F, $F0, $50, $55, $9B, $49, $5F, $7C
-	dta		$56, $F0, $43, $F0, $F0, $42, $58, $5A
-	dta		$24, $F0, $23, $26, $1B, $25, $22, $21
-	dta		$5B, $20, $5D, $4E, $F0, $4D, $3F, $F0
-	dta		$52, $F0, $45, $59, $9F, $54, $57, $51
-	dta		$28, $F0, $29, $27, $9C, $40, $7D, $9D
-	dta		$46, $48, $44, $F0, $F0, $47, $53, $41
-
-	;CTRL
-	dta		$0C, $0A, $7B, $F0, $F0, $0B, $1E, $1F
-	dta		$0F, $F0, $10, $15, $9B, $09, $1C, $1D
-	dta		$16, $F0, $03, $F0, $F0, $02, $18, $1A
-	dta		$F0, $F0, $9B, $F0, $1B, $F0, $FD, $F0
-	dta		$00, $20, $60, $0E, $F0, $0D, $F0, $F0
-	dta		$12, $F0, $05, $19, $9E, $14, $17, $11
-	dta		$F0, $F0, $F0, $F0, $FE, $F0, $7D, $FF
-	dta		$06, $08, $04, $F0, $F0, $07, $13, $01
+isCapsLock:
+	txa
+	and		#$c0
+	sta		shflok
+	jmp		waitForChar
 .endp
+
+;==============================================================================
+KeyboardPutByte = CIOExitNotSupported
+KeyboardGetStatus = CIOExitSuccess
+KeyboardSpecial = CIOExitNotSupported
 
 ;==============================================================================
 .proc	KeyboardIRQ
@@ -165,17 +138,27 @@ keyCodeToATASCII:
 	lda		ch1
 debounced:
 
+	;check for Ctrl+1 to toggle display activity
+	cmp		#$9f
+	beq		isctrl_1
+
 	;store key
 	sta		ch
 
 	;reset attract
 	mva		#0		atract
 
-	;all done
-
 xit:
+	;all done
 	pla
 	rti
+
+isctrl_1:
+	;toggle stop/start flag
+	lda		ssflag
+	eor		#$ff
+	sta		ssflag
+	jmp		xit
 .endp
 
 ;==============================================================================

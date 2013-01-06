@@ -1,6 +1,6 @@
-;	Altirra - Atari 800/800XL emulator
-;	Kernel ROM replacement
-;	Copyright (C) 2008 Avery Lee
+;	Altirra - Atari 800/800XL/5200 emulator
+;	Modular Kernel ROM - Disk Routines
+;	Copyright (C) 2008-2012 Avery Lee
 ;
 ;	This program is free software; you can redistribute it and/or modify
 ;	it under the terms of the GNU General Public License as published by
@@ -16,9 +16,18 @@
 ;	along with this program; if not, write to the Free Software
 ;	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
+.proc DiskInit
+	;set disk sector size to 128 bytes
+	mwa		#$80	dsctln
+	rts
+.endp
+
 .proc DiskHandler
 	mva		#$31	ddevic
-	mva		#64		dtimlo
+	lda		#$40
+	sta		dtimlo
+	sta		dstats
+	mwa		dsctln	dbytlo
 
 	;check for status command
 	lda		dcomnd
@@ -28,11 +37,13 @@
 
 	mwa		#dvstat	dbuflo
 	mwa		#4		dbytlo
-	mva		#$40	dstats
 	jmp		siov
 
 notStatus:
-	mwa		#$80	dbytlo
-	mva		#$40	dstats
+	;check for put command
+	cmp		#$50
+	sne:mva	#$80	dstats
+
+	;call SIO
 	jmp		siov
 .endp

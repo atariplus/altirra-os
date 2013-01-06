@@ -1,6 +1,6 @@
-;	Altirra - Atari 800/800XL emulator
-;	Kernel ROM replacement
-;	Copyright (C) 2008 Avery Lee
+;	Altirra - Atari 800/800XL/5200 emulator
+;	Modular Kernel ROM - IRQ routines
+;	Copyright (C) 2008-2012 Avery Lee
 ;
 ;	This program is free software; you can redistribute it and/or modify
 ;	it under the terms of the GNU General Public License as published by
@@ -16,11 +16,7 @@
 ;	along with this program; if not, write to the Free Software
 ;	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
-.proc IrqRoutine
-	jmp		(vimirq)
-.endp
-
-.proc IrqHandler
+.proc IRQHandler
 	pha
 
 	;check for serial output ready IRQ
@@ -64,15 +60,12 @@ PokeyIntLoop:
 	sta		irqen
 
 	lda		vectab,x
-	pha
-	tsx
-	lda		$0102,x
-	pha
-	lda		#>jmptab
-	sta		$0102,x
+	tax
+	mva		$0200,x jveck
+	mva		$0201,x jveck+1
 	pla
 	tax
-	rts
+	jmp		(jveck)
 
 NotInt:
 	dex
@@ -121,7 +114,7 @@ NotSerBusInterrupt:
 	;check for break instruction
 	tsx
 	lda		$0103,x
-	bit		breakbit
+	and		#$20
 	beq		NotBrkInstruction
 
 	pla
@@ -134,9 +127,6 @@ NotBrkInstruction:
 	pla
 	rti
 
-breakbit:
-	dta		$20
-
 irqtab:
 	dta		$80		;break key
 	dta		$40		;keyboard key
@@ -146,19 +136,10 @@ irqtab:
 	dta		$08		;serial out complete
 
 vectab:
-	dta		<jmptab-1
-	dta		<jmptab+2
-	dta		<jmptab+5
-	dta		<jmptab+8
-	dta		<jmptab+11
-
-	org		* + (<(0 - *)) + 1
-jmptab:
-	jmp		(brkky)
-	jmp		(vkeybd)
-	jmp		(vtimr4)
-	jmp		(vtimr2)
-	jmp		(vtimr1)
-jmptabend:
+	dta		<brkky
+	dta		<vkeybd
+	dta		<vtimr4
+	dta		<vtimr2
+	dta		<vtimr1
 
 .endp

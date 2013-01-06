@@ -1,6 +1,6 @@
-;	Altirra - Atari 800/800XL emulator
-;	Kernel ROM replacement
-;	Copyright (C) 2008 Avery Lee
+;	Altirra - Atari 800/800XL/5200 emulator
+;	Ultimate1MB Recovery BIOS
+;	Copyright (C) 2008-2012 Avery Lee
 ;
 ;	This program is free software; you can redistribute it and/or modify
 ;	it under the terms of the GNU General Public License as published by
@@ -16,44 +16,52 @@
 ;	along with this program; if not, write to the Free Software
 ;	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
-.if _KERNEL_XLXE
-	_KERNEL_PBI_SUPPORT = 1
-	_KERNEL_USE_BOOT_SCREEN = 1
-	.macro _KERNELSTR_BIOS_NAME_INTERNAL
-		dta		d"LLE"
-	.endm
-.else
-	_KERNEL_PBI_SUPPORT = 0
-	_KERNEL_USE_BOOT_SCREEN = 0
-.endif
+		_KERNEL_PRE_BOOT_HOOK = 1
+		_KERNEL_PBI_SUPPORT = 1
+		_KERNEL_XLXE = 1
+		_KERNEL_USE_BOOT_SCREEN = 0
 
-	icl		'version.inc'
-	icl		'hardware.inc'
-	icl		'kerneldb.inc'
+		icl		'cio.inc'
+		icl		'sio.inc'
 
-	opt		h-o+f+
+;==========================================================================
+; LOWER KERNEL ROM
+;
+		org		$c000
+		opt		f+
 
-.if _KERNEL_XLXE
-	org		$c000
-	icl		'pbi.s'
+		icl		'bugcheck.s'
+		icl		'interrupt.s'
+		icl		'keytable.s'
+		icl		'editor.s'
+		icl		'irq.s'
+		icl		'vbi.s'
+		icl		'disk.s'
+		icl		'boot.s'
+		icl		'blackboard.s'
+		icl		'pbi.s'
+		icl		'misc.s'
 
-	org		$cc00
-	icl		'atariifont.inc'
+		org		$cc00
+		icl		'atariifont.inc'
 
-	org		$d000
-	icl		'bootscreen.s'
+;==========================================================================
+; SELF-TEST ROM
+;
+		org		$d000
 
-	opt		f+
-.endif
 
-	org		$d800
+;==========================================================================
+; UPPER KERNEL ROM
+;
+		org		$d800
+		icl		'mathpack.s'
 
-	icl		'mathpack.s'
+		org		$e000
+		icl		'atarifont.inc'
 
-	org		$e000
-	icl		'atarifont.inc'
+		org		$e400
 
-	org		$e400
 editrv	dta		a(EditorOpen-1)
 		dta		a(EditorClose-1)
 		dta		a(EditorGetByte-1)
@@ -96,10 +104,9 @@ casetv	dta		a(CassetteOpen-1)
 		dta		a(CassettePutByte-1)
 		dta		a(CassetteGetStatus-1)
 		dta		a(CassetteSpecial-1)
-		jmp		CassetteInit
+		jsr		BugCheck
 		dta		$00
 
-		;vector table
 		org	$e450
 diskiv	jsr		DiskInit
 dskinv	jmp		DiskHandler
@@ -112,70 +119,49 @@ sioinv	jmp		SIOInit
 sendev	jsr		BugCheck
 intinv	jsr		IntInitInterrupts
 cioinv	jmp		CIOInit
-
-.if _KERNEL_XLXE
-blkbdv	jmp		SelfTestEntry
-.else
 blkbdv	jmp		Blackboard
-.endif
-
 warmsv	jmp		InitWarmStart
 coldsv	jmp		InitColdStart
 rblokv	jmp		CassetteReadBlock
 csopiv	jmp		CassetteOpenRead
-
-.if _KERNEL_XLXE
+pupdiv	jsr		BugCheck			;$E480	1200XL: Power-on display; XL/XE: self-test
+slftsv	jmp		$5000				;$E483	XL: Self-test ($5000)
 pentv	jmp		PBIAddHandler		;$E486	XL: add handler to HATABS
 phunlv	jsr		BugCheck			;$E489	XL:
 phiniv	jsr		BugCheck			;$E48C	XL:
 gpdvv	jsr		BugCheck			;$E48F	XL: Generic device vector
-.endif
 
-;==============================================================================
-; $E4C0  Known RTS instruction
-;
-; The Atari 850 handler uses this as a "known RTS" instruction, as does
-; Altirra's internal R: handler emulation.
-;
-		org		$e4c0
+;==========================================================================
 
-.nowarn .proc KnownRTS
-		rts
+		icl		'init.s'
+		icl		'sio.s'
+		icl		'cio.s'
+		icl		'screen.s'
+		icl		'keyboard.s'
+		icl		'cassette.s'
+
+;==========================================================================
+
+.proc InitPreBootHook
+		mva		#CIOCmdPutChars iccmd
+		mwa		#message_start icbal
+		mwa		#message_end-message_start icbll
+		ldx		#0
+		jsr		ciov
+		jmp		KeyboardGetByte
+
+message_start:
+		dta		c"Altirra Ultimate1MB recovery BIOS",$9B
+		dta		$9B
+		dta		c"Insert BIOS flash disk, press key",$9B
+message_end:
 .endp
 
+;==========================================================================
 
-	icl		'bugcheck.s'
-	icl		'misc.s'
-	icl		'init.s'
-	icl		'boot.s'
-	icl		'cio.inc'
-	icl		'cio.s'
-	icl		'sio.inc'
-	icl		'sio.s'
-	icl		'disk.s'
-	icl		'interrupt.s'
-	icl		'vbi.s'
-	icl		'irq.s'
+		org		$fffa
+		dta		a(IntDispatchNMI)
+		dta		a(InitReset)
+		dta		a(IntDispatchIRQ)
 
-.if _KERNEL_XLXE
-	icl		'selftestentry.s'
-.else
-	icl		'blackboard.s'
-.endif
-
-	icl		'cassette.s'
-
-	icl		'screen.s'
-	icl		'editor.s'
-	icl		'keyboard.s'
-	icl		'keytable.s'
-
-;==============================================================================
-; reset vectors
-;==============================================================================
-	org		$fffa
-	dta		a(IntDispatchNMI)
-	dta		a(InitReset)
-	dta		a(IntDispatchIRQ)
-
-	end
+		opt		f-

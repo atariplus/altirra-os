@@ -19,19 +19,20 @@
 .proc Blackboard
 	;print banner
 	ldx		#0
-	mva		#$09	iccmd		;put record
-	mwa		#banner	icbal		;address
-	mwa		#33		icbll		;count
+	mva		#$09	iccmd
+	mwa		#banner	icbal
+	lda		#24
+	sta		icbll
+	stx		icblh
+
+echoloop:
 	jsr		ciov
 
-	;echo all keys
-echoloop:
 	mva		#$07	iccmd		;get characters
 	stx		icbll
-	jsr		ciov
-	jmp		echoloop
+	bne		echoloop
 
 banner:
-	dta 'Altirra internal BIOS - memo pad',$9B
+	dta		'Altirra BIOS - memo pad',$9B
 
 .endp

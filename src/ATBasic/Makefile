@@ -26,6 +26,9 @@ SRCFILES = \
 
 all: $(OUT)/atbasicx.xex $(OUT)/atbasic.bin
 
+clean:
+	del "$(OUT)/atbasicx.xex" "$(OUT)/atbasic.bin"
+
 $(OUT)/atbasicx.xex:	$(SRCFILES)
 	@if not exist $(OUT) md $(OUT)
 	@for %x in (source/atbasic.s) do mads -c -s -d:CART=0 -o:$@ -l:$(@R).lst -t:$(@R).lab "%~fx"

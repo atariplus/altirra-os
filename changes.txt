@@ -1,1 +1,35 @@
+Version 2.60 [March 21, 2015]:
+   [features added]
+   * ATBasic: Improved execution speed.
+   * ATBasic: Added partial support for CONT statement.
+   * ATBasic: Added support for DPOKE, BPUT, BGET, ERASE, PROTECT, UNPROTECT, DIR, RENAME, MOVE, HEX$(), DPEEK(), !, %, &, and $.
+   * AltirraOS: Optimized FPI routine.
+   * AltirraOS: Improved rounding of FDIV results.
 
+   [bugs fixed]
+   * ATBasic: Fixed precedence of unary minus vs. exponentiation.
+   * ATBasic: Fixed x^y for x<=0.
+   * ATBasic: Error messages now indicate STOPPED or line numbers as appropriate.
+   * ATBasic: Fixed not being able to Break out of a single-line loop.
+   * ATBasic: TRAP line is now reset more appropriately.
+   * ATBasic: Fixed range reduction in SIN() and COS().
+   * ATBasic: GRAPHICS no longer reopens E:.
+   * ATBasic: Fixed CONT sometimes failing in deferred mode.
+   * ATBasic: Fixed parsing errors on the right side of a string relational expression.
+   * ATBasic: Banner changed so startup programs that hardcode line 2 work.
+   * ATBasic: Use of IOCB #0 is no longer allowed.
+   * ATBasic: Out of memory errors are now detected and thrown.
+   * ATBasic: PUT now takes an aexpr instead of avar.
+   * ATBasic: PTABW is now supported.
+   * AltirraOS: SIO no longer saves STACKP before invoking PBI routines (fixes BlackBox crash).
+   * AltirraOS: SIO now leaves ICBALZ/ICBAHZ equal to ICBAL/ICBAH for better custom DOS compatibility.
+   * AltirraOS: Fixed CRITIC being left on after servicing a PBI-based SIO request.
+   * AltirraOS: Fixed GET BYTE returning bogus characters for PBI-based CIO devices.
+   * AltirraOS: E: now supports forced read mode.
+   * AltirraOS: SETVBV now preserves I flag.
+   * AltirraOS: AUX1/2 are now updated properly on R: XIO commands.
+   * AltirraOS: Fixed CIO type 4 polling support.
+   * AltirraOS: Fix timeout for SIO operations.
+   * AltirraOS: Fix ESC-Clear handling in E:.
+   * AltirraOS: Cassette boot now reads EOF record.
+   * AltirraOS: Fixed diagnostic cartridge handling.

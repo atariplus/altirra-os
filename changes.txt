@@ -1,8 +1,23 @@
+Version 2.70 [December 19, 2015]:
+   [features added]
+   * ATBasic: Added LOMEM, ERR(), PMGRAPHICS, PMADR(), PMCLR, PMCOLOR, PMMOVE, MISSILE, and BUMP().
+
+   [bugs fixed]
+   * AltirraOS: Activate self-test ROM after memory test to mimic the XL/XE OS's behavior when doing ROM checksums.
+   * AltirraOS: Improved compatibility of S: plot/line commands in GR.0.
+   * AltirraOS: E:/S: open now enables keyboard IRQs.
+   * AltirraOS: Fixed BOOT? flag being set too early on cassette/disk boots.
+   * AltirraOS: CIO PUT RECORD with length=0 now outputs A without EOL.
+   * AltirraOS: XL/XE version now supports KEYREP.
+   * AltirraOS: Caps Lock now toggles in XL/XE mode.
+   * ATBasic: Fixed bug with terminating EOLs being left in code if a warm reset happened during a filename-based I/O statement.
+   * ATBasic: Fixed CLOAD/CSAVE not setting IRG mode consistently.
+
 Version 2.60 [March 21, 2015]:
    [features added]
    * ATBasic: Improved execution speed.
    * ATBasic: Added partial support for CONT statement.
-   * ATBasic: Added support for DPOKE, BPUT, BGET, ERASE, PROTECT, UNPROTECT, DIR, RENAME, MOVE, HEX$(), DPEEK(), !, %, &, and $.
+   * ATBasic: Added support for DPOKE, BPUT, BGET, ERASE, PROTECT, UNPROTECT, DIR, RENAME, MOVE, HEX$(), DPEEK(), !, %%, &, and $.
    * AltirraOS: Optimized FPI routine.
    * AltirraOS: Improved rounding of FDIV results.
 

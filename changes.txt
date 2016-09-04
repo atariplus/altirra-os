@@ -1,3 +1,18 @@
+Version 2.80:
+   [bugs fixed]
+   * AltirraOS: Fixed XEGS game cartridge activation.
+   * AltirraOS: Fixed errors getting dropped in cassette handler.
+   * AltirraOS: Fixed extra initial block and incorrect partial block problems when writing cassette streams.
+   * AltirraOS: Fixed CIO read record when line exactly fits in buffer.
+   * AltirraOS: Fixed broken inverse key.
+   * AltirraOS: S: clear also clears split-screen area.
+   * AltirraOS: Optimized C/E->data frame path in SIO for better robustness when DLIs are active.
+   * AltirraOS: Fixed race condition in SETVBV.
+   * ATBasic: Added workaround for BASIC programs that have a corrupted function open parens.
+   * ATBasic: Force implicit NEW if LOAD or CLOAD fails.
+   * ATBasic: Fix crash in INT() with certain ranges of large numbers.
+   * ATBasic: Remove added variables when parsing error occurs.
+
 Version 2.70 [December 19, 2015]:
    [features added]
    * ATBasic: Added LOMEM, ERR(), PMGRAPHICS, PMADR(), PMCLR, PMCOLOR, PMMOVE, MISSILE, and BUMP().

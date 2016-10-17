@@ -1,4 +1,4 @@
-Version 2.80:
+Version 2.80 [September 3, 2016]:
    [bugs fixed]
    * AltirraOS: Fixed XEGS game cartridge activation.
    * AltirraOS: Fixed errors getting dropped in cassette handler.

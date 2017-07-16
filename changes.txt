@@ -1,3 +1,11 @@
+Version 2.90:
+   [bugs fixed]
+   * AltirraOS: Modified values of PALNTS for better compatibility with XL/XE OS.
+   * AltirraOS: Fix short block flag not being handled by direct SIO calls for the cassette device.
+   * AltirraOS: Suppress type 3 poll to disk boot only (fixes Pole Position and Missile Command cartridge audio).
+   * ATBasic: Fixed READ line not getting reset after NEW.
+   * ATBasic: PMBASE is no longer altered if PMGRAPHICS has not been executed.
+
 Version 2.80 [September 3, 2016]:
    [bugs fixed]
    * AltirraOS: Fixed XEGS game cartridge activation.

@@ -1,4 +1,9 @@
-Version 2.90:
+Version 3.00: [December 28, 2017]
+   [bugs fixed]
+   * AltirraOS: Fixed polarity of CKEY flag.
+   * ATBasic: Added compatibility workaround for programs that use locations 183 and 184 to read the current DATA line.
+
+Version 2.90: [July 15, 2017]
    [bugs fixed]
    * AltirraOS: Modified values of PALNTS for better compatibility with XL/XE OS.
    * AltirraOS: Fix short block flag not being handled by direct SIO calls for the cassette device.

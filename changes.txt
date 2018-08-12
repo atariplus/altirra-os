@@ -1,4 +1,8 @@
-Version 3.00: [December 28, 2017]
+Version 3.10: [August 12, 2018]
+   [features added]
+   * AltirraOS: Added 65C816 native mode capable version.
+
+   Version 3.00: [December 28, 2017]
    [bugs fixed]
    * AltirraOS: Fixed polarity of CKEY flag.
    * ATBasic: Added compatibility workaround for programs that use locations 183 and 184 to read the current DATA line.

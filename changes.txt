@@ -1,3 +1,20 @@
+Version 3.20: [June 23, 2019]
+   [changes]
+   * AltirraOS is now versioned independently of the main emulator. See changelog in export ROM set output for details.
+
+   [features added]
+   * AltirraOS: Minor improvements to text I/O performance.
+
+   [bugs fixed]
+   * AltirraOS: FDIV no longer returns 0 for 0/0.
+   * AltirraOS: AFP(".") properly returns an error instead of 0.
+   * AltirraOS: EXP10() was returning an error instead of underflowing to 0 for some large negative inputs.
+   * AltirraOS: Pressing reset on the boot screen now forces BASIC to do a cold boot.
+   * AltirraOS: Type 3 poll loop is now exited on user break error to fix infinite boot loop with Black Box firmware.
+   * AltirraOS: Corrected ICBLLZ/ICBLHZ values after CIO get commands.
+   * AltirraOS: Pressing Help now sets HELPFG.
+   * ATBasic: Fixed crash when Break is pressed prior to startup banner.
+
 Version 3.10: [August 12, 2018]
    [features added]
    * AltirraOS: Added 65C816 native mode capable version.
@@ -5,6 +22,7 @@ Version 3.10: [August 12, 2018]
    Version 3.00: [December 28, 2017]
    [bugs fixed]
    * AltirraOS: Fixed polarity of CKEY flag.
+   * AltirraOS: Enforce A=0 on exit from SIOV.
    * ATBasic: Added compatibility workaround for programs that use locations 183 and 184 to read the current DATA line.
 
 Version 2.90: [July 15, 2017]

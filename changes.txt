@@ -1,3 +1,20 @@
+Version 3.90:
+   [features added]
+   * AltirraOS: The boot screen in the XL/XE version now continues boot on disk insertion rather than forcing a reboot.
+   * AltirraOS: Extended memory scan limit for 800 version to $D000 to support 52K expanded configurations.
+
+   [bugs fixed]
+   * AltirraOS: Audio configuration is reset more often on tape reads to produce familiar sounds.
+   * AltirraOS: Disk boot can now occur after cassette boot and right cartridge non-boot.
+   * AltirraOS: OLDADR usage adjusted for compatibility with SDX QUICKED.SYS.
+   * AltirraOS: SIO transmit operations can now be interrupted by User Break.
+   * AltirraOS: The Display Handler now properly sets the default background color (COLOR4) to $06 when opening a GR.11 screen.
+   * AltirraOS: KRPDEL is now set and keyboard repeat rates are NTSC/PAL adjusted on the XL/XE/XEGS version.
+   * AltirraOS: Fixed an SIO issue with an out-of-spec short delay from asserting the command line to first command byte.
+   * AltirraOS: Fixed disk boot issues if a PBI device or cartridge init routine issued an SIO request with DAUX2 > 0 before the disk boot.
+   * AltirraOS: The boot screen now resets the Break key state properly after a boot is interrupted by the Break key.
+   * AltirraOS: Improved native mode compatibility of 816 version.
+
 Version 3.20: [June 23, 2019]
    [changes]
    * AltirraOS is now versioned independently of the main emulator. See changelog in export ROM set output for details.

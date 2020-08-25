@@ -1,0 +1,7 @@
+#!/bin/sh
+
+for file in "$@"; do
+	sed 's:[ \t][ \t]*$::g' < $file > ${file}.$$
+	touch -r $file ${file}.$$ $file
+	mv ${file}.$$ $file
+done

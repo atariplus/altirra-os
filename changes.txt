@@ -1,4 +1,13 @@
-Version 3.90:
+Version 3.91:
+   [bugs fixed]
+   * AltirraOS: Adjusted internal variable usage of P: handler for better compatibility with programs that jump into it without opening P: (Monkey Wrench II).
+   * AltirraOS: Fixed E: Put Byte routine sometimes returning Y=2 instead of Y=1.
+   * AltirraOS: Implemented XL/XE NOCLIK variable.
+   * AltirraOS: Fixed minor rounding error in ATN() constant from assembler.
+   * AltirraOS: Fixed bugs with E: move left and delete char at column 0 with LMARGN=0.
+   * AltirraOS: Added workaround to SIO for devices sending two ACKs instead of ACK+Complete (fixes Indus GT diagnostics zero adjust).
+
+Version 3.90: [June 14, 2020]
    [features added]
    * AltirraOS: The boot screen in the XL/XE version now continues boot on disk insertion rather than forcing a reboot.
    * AltirraOS: Extended memory scan limit for 800 version to $D000 to support 52K expanded configurations.

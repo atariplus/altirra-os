@@ -1,4 +1,4 @@
-Version 3.91:
+Version 3.91: [November 11, 2021]
    [bugs fixed]
    * AltirraOS: Adjusted internal variable usage of P: handler for better compatibility with programs that jump into it without opening P: (Monkey Wrench II).
    * AltirraOS: Fixed E: Put Byte routine sometimes returning Y=2 instead of Y=1.

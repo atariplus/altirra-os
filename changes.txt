@@ -1,3 +1,10 @@
+Version 4.01:
+   [bugs fixed]
+   * AltirraOS: Fixed math pack compatibility issue with FDIV modifying FLPTR (fixes B-Graph pie chart routine).
+   * AltirraOS: Fixed a cursor position checking bug with split screen Gr.0 (fixes the BASIC game House of Usher).
+   * AltirraOS: Fixed compatibility issue with KEYDEL handling (fixes cursor movement in BrushupV40).
+   * ATBasic: IOCB#7 is now automatically closed on I/O errors to avoid SAVE files being kept open for write.
+
 Version 3.91: [November 11, 2021]
    [bugs fixed]
    * AltirraOS: Adjusted internal variable usage of P: handler for better compatibility with programs that jump into it without opening P: (Monkey Wrench II).
